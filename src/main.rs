@@ -65,7 +65,7 @@ fn text_update_system(
         commands.spawn((
             get_text_bundle(random_char, position, &asset_server),
             ColorText(get_char_keycode(random_char)),
-            TextTimer(Timer::from_seconds(1.2, TimerMode::Repeating))
+            TextTimer(Timer::from_seconds(1.2, TimerMode::Once))
         ));
     }
 }
