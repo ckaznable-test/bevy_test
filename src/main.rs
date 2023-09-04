@@ -13,7 +13,13 @@ fn main() {
         .insert_resource(SymbolQueue(Vec::new()))
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, (text_update_system, text_display, print_keyboard_event_system))
+        .add_systems(Update, (
+            text_update_system,
+            text_display,
+            print_keyboard_event_system,
+            success_text_color_system,
+            fail_text_color_system
+        ))
         .run();
 }
 
@@ -25,6 +31,12 @@ fn setup(mut commands: Commands) {
 // A unit struct to help identify the color-changing Text component
 #[derive(Component)]
 struct ColorText(KeyCode);
+
+#[derive(Component)]
+struct SuccessText(Timer);
+
+#[derive(Component)]
+struct FailText(Timer);
 
 #[derive(Component)]
 struct TextTimer(Timer);
@@ -71,7 +83,9 @@ fn print_keyboard_event_system(
             scan_code: _,
         }) = keyboard_input_events.iter().next() {
             if text.0 == *key {
-                commands.entity(entity).despawn();
+                commands.entity(entity).insert(SuccessText(Timer::from_seconds(0.5, TimerMode::Once)));
+            } else {
+                commands.entity(entity).insert(FailText(Timer::from_seconds(0.5, TimerMode::Once)));
             }
         }
     }
@@ -83,6 +97,32 @@ fn text_display(
     mut query: Query<(&mut TextTimer, Entity), With<Text>>,
 ) {
     for (mut timer, entity) in query.iter_mut() {
+        if timer.0.tick(time.delta()).just_finished() {
+            commands.entity(entity).despawn();
+        }
+    }
+}
+
+fn success_text_color_system(
+    time: Res<Time>,
+    mut query: Query<(&mut Text, &mut SuccessText, Entity)>,
+    mut commands: Commands,
+) {
+    for (mut text, mut timer, entity) in &mut query {
+        text.sections[0].style.color = Color::GREEN;
+        if timer.0.tick(time.delta()).just_finished() {
+            commands.entity(entity).despawn();
+        }
+    }
+}
+
+fn fail_text_color_system(
+    time: Res<Time>,
+    mut query: Query<(&mut Text, &mut FailText, Entity)>,
+    mut commands: Commands,
+) {
+    for (mut text, mut timer, entity) in &mut query {
+        text.sections[0].style.color = Color::RED;
         if timer.0.tick(time.delta()).just_finished() {
             commands.entity(entity).despawn();
         }
@@ -111,7 +151,7 @@ fn get_text_bundle(text: char, position: Position, asset_server: &Res<AssetServe
 }
 
 fn get_char_keycode(c: char) -> KeyCode {
-    match c {
+    match c.to_ascii_lowercase() {
         'a' => KeyCode::A,
         'b' => KeyCode::B,
         'c' => KeyCode::C,
